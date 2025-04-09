@@ -9,7 +9,6 @@ import UserRoleSelection from './Pages/UserRoleSelection';
 import { Box } from '@mui/material';
 import ManageNews from './Pages/Admin/ManageNews';
 import NewsDetail from './Pages/User/NewsDetail';
-import NewsScraper from './Pages/Admin/NewsScraper';
 
 function App() {
   const [currentNews, setCurrentNews] = useState(null);
@@ -91,7 +90,6 @@ function App() {
               element={<Dashboard onPlayAudio={handlePlayAudio} currentPlayingNews={currentNews} />}
             />
             <Route path="/admin" element={<ManageNews />} />
-            <Route path="/admin/scraper" element={<NewsScraper />} />
             <Route
               path="/dashboard/:category"
               element={<Dashboard onPlayAudio={handlePlayAudio} currentPlayingNews={currentNews} />}
