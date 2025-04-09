@@ -8,7 +8,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import VolumeUpIcon from "@mui/icons-material/VolumeUp";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
-import axios from "axios";
+import { newsApi } from "../../utils/api";
 
 const NewsDetail = ({ onPlayAudio, currentPlayingNews }) => {
   const location = useLocation();
@@ -29,9 +29,14 @@ const NewsDetail = ({ onPlayAudio, currentPlayingNews }) => {
           newsData = location.state.news;
         } else if (newsId) {
           // Fetch from API if not available in location state
-          const response = await axios.get(`http://localhost:7000/aeroqube/v0/api/news/${newsId}`);
-          if (response.data && response.data.data) {
-            const item = response.data.data;
+          const response = await newsApi.getNewsFromDatabase();
+          if (response && response.data) {
+            // Find the specific news item by ID
+            const item = response.data.find(news => news._id === newsId);
+            if (!item) {
+              setError('News item not found');
+              return;
+            }
             
             // Check if there are translations for the selected language
             const translatedContent = item.translations && item.translations[language];

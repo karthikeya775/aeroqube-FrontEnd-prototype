@@ -17,7 +17,6 @@ import InfoIcon from '@mui/icons-material/Info';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useNavigate } from 'react-router-dom';
 import { newsApi } from '../../utils/api';
-import axios from 'axios';
 
 const ManageNews = () => {
   // Theme hooks for responsive design
@@ -151,22 +150,14 @@ const ManageNews = () => {
     try {
       console.log("Publishing news item:", id);
       
-      // Make a direct API call with axios instead of using the utility function
-      const response = await axios.patch(
-        `http://localhost:7000/aeroqube/v0/api/news/toggle-status/${id}?t=${Date.now()}`,
-        {},
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      // Use the newsApi utility function instead of direct axios call
+      const response = await newsApi.toggleNewsStatus(id);
       
-      console.log("Toggle status direct response:", response);
+      console.log("Toggle status response:", response);
       
-      if (response.data && response.data.success) {
+      if (response && response.success) {
         // Get the updated status from the response
-        const newStatus = response.data.data.status;
+        const newStatus = response.data.status;
         console.log("New status from response:", newStatus);
         
         // Update the news list with the published item
@@ -184,7 +175,7 @@ const ManageNews = () => {
         // Refresh the list to ensure data is up-to-date
         await fetchNews();
       } else {
-        throw new Error(response.data?.message || "Toggle status failed");
+        throw new Error(response?.message || "Toggle status failed");
       }
     } catch (error) {
       console.error('Error publishing news:', error);
@@ -200,24 +191,38 @@ const ManageNews = () => {
     try {
       console.log("Rejecting news item:", id);
       
-      // Call the delete-news API endpoint
-      await newsApi.deleteNews(id);
+      // Use the newsApi utility function instead of direct axios call
+      const response = await newsApi.toggleNewsStatus(id);
       
-      // Remove the news item from the state
-      setNews(news.filter(item => item._id !== id));
+      console.log("Toggle status response:", response);
       
-      // Show success message
-      setSnackbar({
-        open: true,
-        message: 'News item rejected and deleted successfully!',
-        severity: 'success'
-      });
+      if (response && response.success) {
+        // Get the updated status from the response
+        const newStatus = response.data.status;
+        console.log("New status from response:", newStatus);
+        
+        // Update the news list with the rejected item
+        setNews(news.map(item => 
+          item._id === id ? { ...item, status: newStatus } : item
+        ));
+        
+        // Show success message with Snackbar
+        setSnackbar({
+          open: true,
+          message: `News item ${newStatus === 'rejected' ? 'rejected' : 'updated'} successfully!`,
+          severity: 'success'
+        });
+        
+        // Refresh the list to ensure data is up-to-date
+        await fetchNews();
+      } else {
+        throw new Error(response?.message || "Toggle status failed");
+      }
     } catch (error) {
       console.error('Error rejecting news:', error);
-      
       setSnackbar({
         open: true,
-        message: 'Failed to reject news. Please try again.',
+        message: `Failed to reject news: ${error.message}`,
         severity: 'error'
       });
     }
@@ -227,22 +232,14 @@ const ManageNews = () => {
     try {
       console.log("Setting news item to pending:", id);
       
-      // Make a direct API call with axios instead of using the utility function
-      const response = await axios.patch(
-        `http://localhost:7000/aeroqube/v0/api/news/toggle-status/${id}?t=${Date.now()}`,
-        {},
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      // Use the newsApi utility function instead of direct axios call
+      const response = await newsApi.toggleNewsStatus(id);
       
-      console.log("Toggle status direct response:", response);
+      console.log("Toggle status response:", response);
       
-      if (response.data && response.data.success) {
+      if (response && response.success) {
         // Get the updated status from the response
-        const newStatus = response.data.data.status;
+        const newStatus = response.data.status;
         console.log("New status from response:", newStatus);
         
         // Update the news list with the pending item
@@ -260,7 +257,7 @@ const ManageNews = () => {
         // Refresh the news list to ensure data is up-to-date
         await fetchNews();
       } else {
-        throw new Error(response.data?.message || "Toggle status failed");
+        throw new Error(response?.message || "Toggle status failed");
       }
     } catch (error) {
       console.error('Error setting news to pending:', error);
@@ -319,64 +316,39 @@ const ManageNews = () => {
 
   const handleSave = async () => {
     try {
-      if (!selectedNews?._id) {
-        throw new Error('No news item selected');
+      console.log("Saving edited news:", editedNews);
+      
+      // Use the newsApi utility function instead of direct axios call
+      const response = await newsApi.updateNews(selectedNews._id, editedNews);
+      
+      console.log("Update response:", response);
+      
+      if (response && response.success) {
+        // Update the news list with the edited item
+        setNews(news.map(item => 
+          item._id === selectedNews._id ? { ...item, ...editedNews } : item
+        ));
+        
+        // Show success message with Snackbar
+        setSnackbar({
+          open: true,
+          message: "News item updated successfully!",
+          severity: 'success'
+        });
+        
+        // Close the dialog
+        handleCloseDialog();
+        
+        // Refresh the list to ensure data is up-to-date
+        await fetchNews();
+      } else {
+        throw new Error(response?.message || "Update failed");
       }
-
-      console.log("Saving changes for news item:", selectedNews._id);
-      
-      // Only include the 4 editable fields as confirmed by backend team
-      const updateData = {
-        headline: editedNews.headline,
-        summary: editedNews.summary,
-        category: editedNews.category,
-        tags: editedNews.tags
-      };
-      
-      console.log("Sending update with only the 4 editable fields:", updateData);
-      
-      // Call the API
-      const response = await axios.put(
-        `http://localhost:7000/aeroqube/v0/api/news/update-news/${selectedNews._id}`, 
-        updateData,
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      
-      console.log("Direct API response:", response);
-      
-      // Close the dialog
-      setDialogOpen(false);
-      
-      // Show success message
-      setSnackbar({
-        open: true,
-        message: 'News item updated successfully!',
-        severity: 'success'
-      });
-      
-      // Refresh the news list
-      await fetchNews();
     } catch (error) {
       console.error('Error updating news:', error);
-      
-      // Extract error message
-      let errorMessage = 'Unknown error';
-      
-      if (error.response) {
-        console.log('Error response:', error.response);
-        errorMessage = error.response.data?.message || error.response.statusText || 'Server error';
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      // Show error message
       setSnackbar({
         open: true,
-        message: `Failed to update news: ${errorMessage}`,
+        message: `Failed to update news: ${error.message}`,
         severity: 'error'
       });
     }
@@ -420,37 +392,31 @@ const ManageNews = () => {
   const handleProcessNews = async () => {
     try {
       setLoading(true);
-      setSnackbar({
-        open: true,
-        message: 'Starting news processing...',
-        severity: 'info'
-      });
       
+      // Use the newsApi utility function instead of direct axios call
       const response = await newsApi.processNews();
-      console.log('Processing result:', response);
       
-      // Check if processing is already in progress
-      if (response && response.message) {
+      console.log("Process news response:", response);
+      
+      if (response && response.success) {
         setSnackbar({
           open: true,
-          message: 'News extraction is already in progress. Please wait for it to complete.',
-          severity: 'warning'
-        });
-      } else {
-        setSnackbar({
-          open: true,
-          message: 'News processing started successfully!',
+          message: "News processing started successfully!",
           severity: 'success'
         });
         
-        // Refresh the news list
-        await fetchNews();
+        // Refresh the list after a short delay to allow processing to start
+        setTimeout(async () => {
+          await fetchNews();
+        }, 2000);
+      } else {
+        throw new Error(response?.message || "Process news failed");
       }
     } catch (error) {
       console.error('Error processing news:', error);
       setSnackbar({
         open: true,
-        message: 'Failed to process news. Please try again.',
+        message: `Failed to process news: ${error.message}`,
         severity: 'error'
       });
     } finally {
@@ -458,108 +424,64 @@ const ManageNews = () => {
     }
   };
 
-  // Function to fetch news from external API and write to news.json
   const handleFetchFromExternal = async () => {
     try {
       setLoading(true);
-      setSnackbar({
-        open: true,
-        message: 'Fetching news from external API...',
-        severity: 'info'
-      });
       
-      // Call the getAllNews endpoint which fetches from external source and saves to news.json
+      // Use the newsApi utility function instead of direct axios call
       const response = await newsApi.getAllNews();
-      console.log("External API fetch response:", response);
       
-      // Check for API unavailability
-      if (response.data && response.data.message && response.data.message.includes("unavailable")) {
+      console.log("Fetch from external response:", response);
+      
+      if (response && response.success) {
         setSnackbar({
           open: true,
-          message: 'News API service is currently unavailable. Please try again later.',
-          severity: 'error'
-        });
-        return;
-      }
-      
-      setSnackbar({
-        open: true,
-        message: response.data.message || 'Successfully fetched news from external API and saved to news.json.',
-        severity: 'success'
-      });
-    } catch (error) {
-      console.error('Error fetching from external API:', error);
-      
-      // Check for API unavailability in the error
-      if (error.response && error.response.data && error.response.data.message && 
-          error.response.data.message.includes("unavailable")) {
-        setSnackbar({
-          open: true,
-          message: 'News API service is currently unavailable. Please try again later.',
-          severity: 'error'
+          message: "News fetched from external source successfully!",
+          severity: 'success'
         });
       } else {
-        setSnackbar({
-          open: true,
-          message: 'Failed to fetch news from external API. Please try again.',
-          severity: 'error'
-        });
+        throw new Error(response?.message || "Fetch from external failed");
       }
+    } catch (error) {
+      console.error('Error fetching from external:', error);
+      setSnackbar({
+        open: true,
+        message: `Failed to fetch from external: ${error.message}`,
+        severity: 'error'
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // Add this new function to fetch and store news
   const handleFetchAndStoreNews = async () => {
     try {
       setLoading(true);
-      setSnackbar({
-        open: true,
-        message: 'Fetching and storing news...',
-        severity: 'info'
-      });
       
-      // Simply call the addNewsToDatabase endpoint, which will handle everything on the backend
+      // Use the newsApi utility function instead of direct axios call
       const response = await newsApi.addNewsToDatabase();
-      console.log("Add to database response:", response);
       
-      // Check for API unavailability
-      if (response.data && response.data.message && response.data.message.includes("unavailable")) {
+      console.log("Fetch and store news response:", response);
+      
+      if (response && response.success) {
         setSnackbar({
           open: true,
-          message: 'News API service is currently unavailable. Please try again later.',
-          severity: 'error'
+          message: "News fetched and stored successfully!",
+          severity: 'success'
         });
-        return;
+        
+        // Refresh the list to show the new items
+        await fetchNews();
+      } else {
+        throw new Error(response?.message || "Fetch and store news failed");
       }
-      
-      // Refresh the news list
-      await fetchNews();
-      
+    } catch (error) {
+      console.error('Error fetching and storing news:', error);
       setSnackbar({
         open: true,
-        message: response.data.message || 'Successfully added news from news.json to the database.',
-        severity: 'success'
+        message: `Failed to fetch and store news: ${error.message}`,
+        severity: 'error'
       });
-    } catch (error) {
-      console.error('Error adding news to database:', error);
-      
-      // Check for API unavailability in the error
-      if (error.response && error.response.data && error.response.data.message && 
-          error.response.data.message.includes("unavailable")) {
-        setSnackbar({
-          open: true,
-          message: 'News API service is currently unavailable. Please try again later.',
-          severity: 'error'
-        });
-      } else {
-        setSnackbar({
-          open: true,
-          message: 'Failed to add news to database. Please try again.',
-          severity: 'error'
-        });
-      }
     } finally {
       setLoading(false);
     }

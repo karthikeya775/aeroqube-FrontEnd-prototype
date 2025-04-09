@@ -27,8 +27,8 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import { useNavigate, useParams } from "react-router-dom";
 import NewsCard from "../../Components/NewsCard";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import axios from "axios";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { newsApi } from "../../utils/api";
 
 // const categories = [
 //   { id: 'all', label: 'All News' },
@@ -65,110 +65,50 @@ const Dashboard = ({ onPlayAudio, currentPlayingNews }) => {
   const fetchNews = async () => {
     try {
       setLoading(true);
-      // Fetch published news from the backend API - add cache buster to force fresh results
-      const response = await axios.get(`http://localhost:7000/aeroqube/v0/api/news/published-news?t=${Date.now()}`);
-      console.log('Fetched published news:', response.data.data);
-      
-      if (response.data && response.data.data) {
-        // Debug log for translations and audio
-        response.data.data.forEach(item => {
-          if (item.translations) {
-            console.log(`Article ID: ${item._id} - Available translations:`, Object.keys(item.translations));
-            
-            // Check audio URLs for each translation
-            Object.entries(item.translations).forEach(([lang, content]) => {
-              console.log(`Audio for ${lang}:`, content.appwrite_audio_url);
-            });
-          }
-          console.log(`Original audio URL for ${item._id}:`, item.appwrite_audio_url);
-        });
-        
-        // Transform the data to match the expected format
-        const transformedNews = response.data.data.map(item => {
-          // Format the date properly
-          let formattedDate = '';
-          if (item.date) {
-            const dateValue = item.date;
-            // Convert date to ISO string format
-            const dateObj = new Date(dateValue);
-            if (!isNaN(dateObj.getTime())) {
-              formattedDate = dateObj.toISOString().split('T')[0];
-            } else {
-              // If date is already in string format like "YYYY-MM-DD"
-              formattedDate = dateValue;
-            }
-          }
-          
+      const response = await newsApi.getPublishedNews();
+      if (response && response.data) {
+        const newsData = response.data.map(item => {
           // Check if there are translations for the selected language
           const translatedContent = item.translations && item.translations[language];
-          
-          // Debug translation data
-          console.log(`Article ${item._id} - language: ${language}, has translation:`, Boolean(translatedContent));
           
           // Use translated content if available, otherwise use the original content
           const title = translatedContent ? translatedContent.headline : item.headline;
           const summary = translatedContent ? translatedContent.summary : item.summary;
           const content = translatedContent ? translatedContent.content : item.content;
+          const audioUrl = translatedContent && translatedContent.appwrite_audio_url 
+            ? translatedContent.appwrite_audio_url
+            : item.appwrite_audio_url;
           
-          // Debug what's happening with voice files
-          console.log('Processing audio for item:', item._id);
-          console.log('Selected language:', language);
-          console.log('Has translations:', Boolean(item.translations));
-          console.log('Has translation for selected language:', Boolean(translatedContent));
-          
-          let audioUrl = null;
-          
-          // First check if translated content has audio
-          if (translatedContent && translatedContent.appwrite_audio_url) {
-            console.log('Using translated audio URL:', translatedContent.appwrite_audio_url);
-            audioUrl = translatedContent.appwrite_audio_url;
-          } 
-          // If no translated audio, check original audio
-          else if (item.appwrite_audio_url) {
-            console.log('Using original audio URL:', item.appwrite_audio_url);
-            audioUrl = item.appwrite_audio_url;
-          }
-          else {
-            console.log('No audio URL found for this item');
-          }
-          
-          // Use appropriate field names, ensuring fallbacks if fields are missing
           return {
             id: item._id,
             title: title || '',
             summary: summary || '',
             sourceName: item.source || 'Unknown Source',
             sourceUrl: item.url || '#',
-            sourceReliability: 'High',
             category: item.category || 'general',
-            timestamp: formattedDate ? `${formattedDate}T${item.time || '00:00:00'}` : new Date().toISOString(),
-            imageUrl: item.main_image?.url || (item.images && item.images.length > 0 ? item.images[0].url : 'https://images.unsplash.com/photo-1581090700227-1e8d49c2a960?auto=format&fit=crop&w=800&q=80'),
-            tags: item.tags || [],
-            voice_file: audioUrl,
+            date: item.date || '',
+            time: item.time || '',
+            imageUrl: item.main_image?.url || (item.images && item.images.length > 0 ? item.images[0].url : ''),
+            voice_file: audioUrl || null,
             content: content || '',
-            // Store language and translations data
-            translations: item.translations || {},
-            currentLanguage: language,
             originalItem: item // Store the original item for full access to translations
           };
         });
         
-        console.log('Transformed news data:', transformedNews);
-        setNewsItems(transformedNews);
-        
-        // Extract all unique tags
-        const tags = [...new Set(transformedNews.flatMap(news => news.tags))].filter(Boolean);
-        setAllTags(tags);
+        setNewsItems(newsData);
       } else {
-        console.error('Invalid response format:', response.data);
-        setNewsItems([]);
+        console.error('Invalid response format:', response);
+        setSnackbar({
+          open: true,
+          message: 'Failed to load news. Please try again.',
+          severity: 'error'
+        });
       }
     } catch (error) {
-      console.error('Error fetching published news:', error);
-      setNewsItems([]);
+      console.error('Error fetching news:', error);
       setSnackbar({
         open: true,
-        message: 'Failed to fetch news articles. Please try again.',
+        message: 'Failed to load news. Please try again.',
         severity: 'error'
       });
     } finally {

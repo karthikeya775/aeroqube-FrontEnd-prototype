@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base URL for API requests
-const BASE_URL = 'http://localhost:7000/aeroqube/v0/api/news';
+const BASE_URL = 'https://aeroqube-backend-prototype.onrender.com/aeroqube/v0/api/news';
 
 // News APIs
 export const newsApi = {
